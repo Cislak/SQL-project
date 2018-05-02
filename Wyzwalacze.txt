@@ -1,0 +1,185 @@
+ALTER TRIGGER PUNKTY ON Mecze_szczegoly
+AFTER INSERT
+AS
+	DECLARE @Ile INT
+	DECLARE @Gospodarz INT
+	DECLARE @Gosc INT
+	DECLARE @Gole_gospodarz INT
+	DECLARE @Gole_gosc INT
+	DECLARE @Id_meczu INT
+	DECLARE @TabelaMeczy TABLE (Id_meczu INT)
+
+	SET @Ile = (SELECT COUNT(*) FROM inserted)
+
+	WHILE @Ile > 0
+	BEGIN
+		SET @Id_meczu = (SELECT MAX(Id_meczu) FROM inserted AS I
+								WHERE NOT EXISTS (SELECT Id_meczu FROM @TabelaMeczy 
+										   WHERE Id_meczu = I.Id_meczu))
+		
+		INSERT INTO @TabelaMeczy VALUES (@Id_meczu)
+		SET @Gospodarz = (SELECT Id_gospodarza FROM Terminarz AS T
+							WHERE Id_meczu = @Id_meczu)
+		SET @Gosc = (SELECT Id_goscia FROM Terminarz AS T
+							WHERE Id_meczu = @Id_meczu)
+		SET @Gole_gospodarz = (SELECT Gole_gospodarz FROM Mecze_szczegoly AS M
+									WHERE Id_meczu = @Id_meczu)
+		SET @Gole_gosc = (SELECT Gole_gosc FROM Mecze_szczegoly AS M
+									WHERE Id_meczu = @Id_meczu)
+		IF @Gole_gospodarz > @Gole_gosc
+		BEGIN
+			IF (SELECT COUNT(*) FROM Tabela WHERE Id_klubu = @Gospodarz) <> 1
+			BEGIN
+				INSERT INTO Tabela VALUES (@Gospodarz,0,0,0,0)
+			END
+			IF (SELECT COUNT(*) FROM Tabela WHERE Id_klubu = @Gosc) <> 1
+			BEGIN
+				INSERT INTO Tabela VALUES (@Gosc,0,0,0,0)
+			END
+
+			UPDATE Tabela SET Zwyciestwa += 1 WHERE Id_klubu = @Gospodarz
+			UPDATE Tabela SET Porazki += 1 WHERE Id_klubu = @Gosc
+			UPDATE Tabela SET Punkty = Zwyciestwa * 3 + Remisy WHERE Id_klubu = @Gospodarz
+		END
+		IF @Gole_gospodarz < @Gole_gosc
+		BEGIN
+			IF (SELECT COUNT(*) FROM Tabela WHERE Id_klubu = @Gospodarz) <> 1
+			BEGIN
+				INSERT INTO Tabela VALUES (@Gospodarz,0,0,0,0)
+			END
+			IF (SELECT COUNT(*) FROM Tabela WHERE Id_klubu = @Gosc) <> 1
+			BEGIN
+				INSERT INTO Tabela VALUES (@Gosc,0,0,0,0)
+			END
+
+			UPDATE Tabela SET Zwyciestwa += 1 WHERE Id_klubu = @Gosc
+			UPDATE Tabela SET Porazki += 1 WHERE Id_klubu = @Gospodarz
+			UPDATE Tabela SET Punkty = Zwyciestwa * 3 + Remisy WHERE Id_klubu = @Gosc
+		END
+		IF @Gole_gospodarz = @Gole_gosc
+		BEGIN
+			IF (SELECT COUNT(*) FROM Tabela WHERE Id_klubu = @Gospodarz) <> 1
+			BEGIN
+				INSERT INTO Tabela VALUES (@Gospodarz,0,0,0,0)
+			END
+			IF (SELECT COUNT(*) FROM Tabela WHERE Id_klubu = @Gosc) <> 1
+			BEGIN
+				INSERT INTO Tabela VALUES (@Gosc,0,0,0,0)
+			END
+
+			UPDATE Tabela SET Remisy += 1 WHERE Id_klubu = @Gospodarz
+			UPDATE Tabela SET Remisy += 1 WHERE Id_klubu = @Gosc
+			UPDATE Tabela SET Punkty = Zwyciestwa * 3 + Remisy WHERE Id_klubu = @Gospodarz
+			UPDATE Tabela SET Punkty = Zwyciestwa * 3 + Remisy WHERE Id_klubu = @Gosc
+		END
+
+		SET @Ile = @Ile - 1
+	END
+GO
+
+ALTER TRIGGER Dodaj_pilkarza ON Pilkarze
+AFTER INSERT
+AS
+	DECLARE @TabelaPilkarzy TABLE (Id_pilkarza INT)
+	DECLARE @Ile INT
+	DECLARE @Id_pilkarza INT
+	DECLARE @Id_klubu INT
+	DECLARE @Numer INT
+	SET @Ile = (SELECT COUNT(*) FROM inserted)
+
+	WHILE @Ile > 0
+	BEGIN
+		SET @Id_pilkarza = (SELECT MAX(I.Id_pilkarza) FROM inserted AS I
+								WHERE @Id_pilkarza NOT IN (SELECT Id_pilkarza FROM @TabelaPilkarzy))
+		SET @Id_klubu = (SELECT Id_klubu FROM inserted WHERE @Id_pilkarza = Id_pilkarza)
+		SET @Numer = (SELECT Numer FROM inserted WHERE @Id_pilkarza = Id_pilkarza)
+		INSERT INTO @TabelaPilkarzy VALUES (@Id_pilkarza)
+		IF (SELECT COUNT(*) FROM Pilkarze AS P WHERE P.Numer = @Numer AND @Id_klubu = P.Id_klubu) > 1
+		BEGIN
+			RAISERROR('Jest ju¿ pi³karz z numerem %d w klubie o identyfikatorze %d', 16, 1,
+						@Numer, @Id_klubu)
+			ROLLBACK
+		END
+		SET @Ile -= 1
+	END
+GO
+
+ALTER TRIGGER Dodaj_transfer ON Transfery
+AFTER INSERT
+AS
+	DECLARE @Id_transferu INT
+	DECLARE @Id_pilkarza INT
+	DECLARE @Id_starego INT
+	DECLARE @Id_nowego INT
+	DECLARE @Ile INT
+	DECLARE @TabelaTransferow TABLE (Id_meczu INT)
+	SET @Ile = (SELECT COUNT(*) FROM inserted)
+
+	WHILE @Ile > 0
+	BEGIN
+		SET @Id_transferu = (SELECT MAX(Id_transferu) FROM inserted
+								WHERE Id_transferu NOT IN (SELECT Id_transferu FROM @TabelaTransferow))
+		SET @Id_pilkarza = (SELECT Id_pilkarza FROM inserted WHERE Id_transferu = @Id_transferu)
+		SET @Id_starego = (SELECT Stary_klub FROM inserted WHERE Id_transferu = @Id_transferu)
+		SET @Id_nowego = (SELECT Nowy_klub FROM inserted WHERE Id_transferu = @Id_transferu)
+
+		UPDATE Pilkarze
+		SET Id_klubu = @Id_nowego
+		WHERE Id_pilkarza = @Id_pilkarza
+
+		SET @Ile -= 1
+	END
+GO
+
+
+CREATE TRIGGER Dodaj_trenera ON Trenerzy
+AFTER INSERT
+AS
+	DECLARE @TabelaTrenerow TABLE (Id_trenera INT)
+	DECLARE @Id_klubu INT
+	DECLARE @Id_trenera INT
+	DECLARE @Ile INT
+	SET @Ile = (SELECT COUNT(*) FROM inserted)
+
+	WHILE @Ile > 0
+	BEGIN
+		SET @Id_trenera = (SELECT MAX(Id_trenera) FROM inserted WHERE Id_trenera NOT IN 
+								(SELECT Id_trenera FROM @TabelaTrenerow))
+		SET @Id_klubu = (SELECT Id_klubu FROM inserted WHERE Id_trenera = @Id_trenera)
+		INSERT INTO @TabelaTrenerow VALUES (@Id_trenera)
+
+		IF (SELECT COUNT(*) FROM Trenerzy WHERE Id_klubu = @Id_klubu) > 1
+		BEGIN
+			RAISERROR('Jest juz trener w klubie o indeksie %d',16,1,@Id_klubu)
+			ROLLBACK
+		END
+
+
+		SET @Ile -= 1
+	END
+GO
+
+
+
+ALTER TRIGGER Usun_termin ON Terminarz
+AFTER DELETE
+AS
+	DECLARE @Ile INT
+	DECLARE @TabelaTerminow TABLE (Id_meczu INT)
+	DECLARE @Id_terminu INT
+
+	SET @Ile = (SELECT COUNT(*) FROM deleted)
+
+	WHILE @Ile > 0
+	BEGIN
+		SET @Id_terminu = (SELECT MAX(Id_meczu) FROM deleted AS D
+								WHERE NOT EXISTS (SELECT Id_meczu FROM @TabelaTerminow 
+										   WHERE Id_meczu = D.Id_meczu))
+		INSERT INTO @TabelaTerminow VALUES (@Id_terminu)
+		IF EXISTS (SELECT * FROM Mecze_szczegoly AS M WHERE Id_meczu = @Id_terminu)
+		BEGIN
+			RAISERROR('Nie mozna usunac meczu o indeksie %d, ktory juz sie odbyl!',16,1,@Id_terminu)
+			ROLLBACK
+		END
+	END
+GO

@@ -1,0 +1,107 @@
+ALTER FUNCTION Historia_druzyny (@Druzyna NVARCHAR(50))
+RETURNS @Wynik TABLE (Przeciwnik NVARCHAR(50), Rezultat NVARCHAR(20), [Strzelone gole] INT, [Stracone gole] INT, [U siebie] NVARCHAR(3), [Numer Kolejki] INT)
+AS
+BEGIN
+	DECLARE @Id_druzyny INT
+	SET @Id_druzyny = (SELECT Id_klubu FROM Kluby WHERE Nazwa = @Druzyna)
+
+	INSERT INTO @Wynik
+	SELECT K2.Nazwa, ' ', M.Gole_gospodarz, M.Gole_gosc, 'TAK', T.Numer_kolejki
+	FROM Mecze_szczegoly AS M
+	JOIN Terminarz AS T ON M.Id_meczu = T.Id_meczu
+	JOIN Kluby AS K1 ON T.Id_gospodarza = K1.Id_klubu
+	JOIN Kluby AS K2 ON T.Id_goscia = K2.Id_klubu
+	WHERE K1.Id_klubu = @Id_druzyny
+
+	INSERT INTO @Wynik
+	SELECT K1.Nazwa, ' ', M.Gole_gospodarz, M.Gole_gosc, 'NIE', T.Numer_kolejki
+	FROM Mecze_szczegoly AS M
+	JOIN Terminarz AS T ON M.Id_meczu = T.Id_meczu
+	JOIN Kluby AS K1 ON T.Id_gospodarza = K1.Id_klubu
+	JOIN Kluby AS K2 ON T.Id_goscia = K2.Id_klubu
+	WHERE K2.Id_klubu = @Id_druzyny
+
+	UPDATE @Wynik
+	SET Rezultat = 'Zwyciestwo'
+	WHERE [Strzelone gole] > [Stracone gole]
+
+	UPDATE @Wynik
+	SET Rezultat = 'Porazka'
+	WHERE [Strzelone gole] < [Stracone gole]
+
+	UPDATE @Wynik
+	SET Rezultat = 'Remis'
+	WHERE [Strzelone gole] = [Stracone gole]
+
+	RETURN
+END
+
+CREATE FUNCTION Historia_transferow (@Druzyna NVARCHAR(50))
+RETURNS @Wynik TABLE (Imie NVARCHAR(50), Nazwisko NVARCHAR(50), [Zakup/Sprzedaz] NVARCHAR(20), Cena MONEY)
+AS
+BEGIN
+	DECLARE @Id_druzyny INT
+	SET @Id_druzyny = (SELECT Id_klubu FROM Kluby WHERE Nazwa = @Druzyna)
+
+	INSERT INTO @Wynik
+	SELECT P.Imie, P.Nazwisko, 'Sprzedaz', -T.Cena
+	FROM Transfery AS T
+	JOIN Pilkarze AS P ON P.Id_pilkarza = T.Id_pilkarza
+	WHERE T.Stary_klub = @Id_druzyny
+
+	INSERT INTO @Wynik
+	SELECT P.Imie, P.Nazwisko, 'Zakup', T.Cena
+	FROM Transfery AS T
+	JOIN Pilkarze AS P ON P.Id_pilkarza = T.Id_pilkarza
+	WHERE T.Nowy_klub = @Id_druzyny
+
+	RETURN
+
+END
+
+
+ALTER FUNCTION Nazwa_druzyny(@Id_druzyny INT)
+RETURNS NVARCHAR(50)
+AS
+BEGIN
+	RETURN (SELECT Nazwa FROM Kluby WHERE Id_klubu = @Id_druzyny)
+END
+
+
+
+
+CREATE FUNCTION Indeks_druzyny(@Nazwa NVARCHAR(50))
+RETURNS INT
+AS
+BEGIN
+	RETURN (SELECT Id_klubu FROM Kluby WHERE Nazwa = @Nazwa)
+END
+
+
+
+ALTER FUNCTION Pilkarze_z_numerem (@Numer INT)
+RETURNS @Wynik TABLE (Imie NVARCHAR(50), Nazwisko NVARCHAR(50), Klub NVARCHAR(50))
+AS
+BEGIN
+	INSERT INTO @Wynik
+	SELECT P.Imie, P.Nazwisko, K.Nazwa AS [Klub]
+	FROM Pilkarze AS P
+	JOIN Kluby AS K ON P.Id_klubu = K.Id_klubu
+	WHERE P.Numer = @Numer
+	RETURN
+END
+
+
+
+ALTER FUNCTION Indeks_meczu (@N_gospodarz NVARCHAR(50), @N_gosc NVARCHAR(50), @Kolejka INT)
+RETURNS INT
+AS
+BEGIN
+	DECLARE @Gospodarz INT
+	DECLARE @Gosc INT
+	SET @Gospodarz = (SELECT Id_klubu FROM Kluby WHERE Nazwa = @N_gospodarz)
+	SET @Gosc = (SELECT Id_klubu FROM Kluby WHERE Nazwa = @N_gosc)
+
+	RETURN (SELECT Id_meczu FROM Terminarz 
+				WHERE Id_gospodarza = @Gospodarz AND Id_goscia = @Gosc AND Numer_kolejki = @Kolejka)
+END

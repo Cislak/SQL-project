@@ -1,0 +1,50 @@
+ALTER VIEW Tabela_widok AS
+SELECT K.Nazwa, T.Zwyciestwa, T.Porazki, T.Remisy, T.Punkty
+FROM Tabela AS T JOIN Kluby AS K ON T.Id_klubu = K.Id_klubu
+
+ALTER VIEW Ranking_strzelcow AS
+SELECT P.Imie, P.Nazwisko, SUM(S.Gole) AS [Gole]
+FROM Statystyki_pilkarzy_w_meczach AS S 
+JOIN Pilkarze AS P ON S.Id_pilkarza = P.Id_pilkarza
+GROUP BY Imie, Nazwisko
+HAVING SUM(S.Gole) > 0
+
+ALTER VIEW Ranking_asyst AS
+SELECT P.Imie, P.Nazwisko, SUM(S.Asysty) AS [Asysty]
+FROM Statystyki_pilkarzy_w_meczach AS S 
+JOIN Pilkarze AS P ON S.Id_pilkarza = P.Id_pilkarza
+GROUP BY Imie, Nazwisko
+HAVING SUM(S.Asysty) > 0
+
+ALTER VIEW Gole_na_stadionie AS
+SELECT S.Nazwa AS [Stadion], SUM(St.Gole) AS [Liczba goli]
+FROM Stadiony AS S
+JOIN Kluby AS K ON S.Id_stadionu = K.Id_stadionu
+JOIN Terminarz AS T ON K.Id_klubu = T.Id_gospodarza
+JOIN Statystyki_pilkarzy_w_meczach AS St ON T.Id_meczu = St.Id_meczu
+GROUP BY S.Nazwa
+
+ALTER VIEW Rozegrane_derby AS
+SELECT K1.Miasto, K1.Nazwa AS [Gospodarz], K2.Nazwa AS [Gosc], M.Gole_gospodarz, M.Gole_gosc,S.Nazwa AS [Stadion], T.Numer_kolejki
+FROM Mecze_szczegoly AS M
+JOIN Terminarz AS T ON M.Id_meczu = T.Id_meczu
+JOIN Kluby AS K1 ON T.Id_gospodarza = K1.Id_klubu
+JOIN Kluby AS K2 ON T.Id_goscia = K2.Id_klubu
+JOIN Stadiony AS S ON K1.Id_stadionu = S.Id_stadionu
+WHERE K1.Miasto = K2.Miasto
+
+ALTER VIEW Przyszle_derby AS
+SELECT K1.Miasto, K1.Nazwa AS [Gospodarz], K2.Nazwa AS [Gosc], S.Nazwa AS [Stadion], T.Numer_kolejki, T.Data_meczu
+FROM Terminarz AS T
+LEFT JOIN Mecze_szczegoly AS M ON T.Id_meczu = M.Id_meczu 
+JOIN Kluby AS K1 ON K1.Id_klubu = T.Id_gospodarza
+JOIN Kluby AS K2 ON K2.Id_klubu = T.Id_goscia
+JOIN Stadiony AS S ON K1.Id_stadionu = S.Id_stadionu
+WHERE M.Id_meczu IS NULL AND K1.Miasto = K2.Miasto
+
+
+CREATE VIEW Klub_trener AS
+SELECT K.Nazwa, T.Imie, T.Nazwisko
+FROM Trenerzy AS T
+JOIN Kluby AS K ON T.Id_klubu = K.Id_klubu
+

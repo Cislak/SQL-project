@@ -1,0 +1,114 @@
+ALTER PROC Dodaj_termin_meczu @Gospodarz NVARCHAR(50), @Gosc NVARCHAR(50), @Kolejka INT, @Data DATETIME
+AS
+DECLARE @Id_gospodarz INT
+DECLARE @Id_gosc INT
+SET @Id_gospodarz = (SELECT dbo.Indeks_druzyny(@Gospodarz))
+SET @Id_gosc = (SELECT dbo.Indeks_druzyny(@Gosc))
+
+IF EXISTS (SELECT * FROM Terminarz WHERE Id_gospodarza = @Id_gospodarz AND
+					 Id_goscia = @Id_gosc AND
+					 Numer_kolejki = @Kolejka)
+BEGIN
+	RAISERROR('Istnieje juz termin tego meczu',16,1,1)
+END
+ELSE
+	INSERT INTO Terminarz VALUES
+	(@Id_gospodarz, @Id_gosc, @Kolejka, @Data)
+
+
+
+
+ALTER PROC Dodaj_gola @Id_meczu INT, @Id_strzelca INT, @Id_asystujacego INT, @Karny BIT, @Id_bramkarza INT
+AS
+IF NOT EXISTS (SELECT * FROM Mecze_szczegoly WHERE Id_meczu = @Id_meczu)
+BEGIN
+	RAISERROR('Nie ma informacji o tym meczu!', 16, 1, 1)
+	RETURN
+END
+IF NOT EXISTS (SELECT * FROM Pilkarze WHERE Id_pilkarza = @Id_strzelca) OR
+   (NOT EXISTS (SELECT * FROM Pilkarze WHERE Id_pilkarza = @Id_asystujacego) AND @Id_asystujacego IS NOT NULL) OR
+   (NOT EXISTS (SELECT * FROM Pilkarze WHERE Id_pilkarza = @Id_bramkarza) AND @Id_asystujacego IS NOT NULL)
+BEGIN
+	RAISERROR('Nie ma jednego z pilkarzy!',16,1,1)
+	RETURN
+END
+IF NOT EXISTS (SELECT * FROM Statystyki_pilkarzy_w_meczach WHERE Id_pilkarza = @Id_strzelca) OR
+   (NOT EXISTS (SELECT * FROM Statystyki_pilkarzy_w_meczach WHERE Id_pilkarza = @Id_asystujacego) AND @Id_asystujacego IS NOT NULL) OR
+   (NOT EXISTS (SELECT * FROM Statystyki_pilkarzy_w_meczach WHERE Id_pilkarza = @Id_bramkarza) AND @Id_bramkarza IS NOT NULL)
+BEGIN
+	RAISERROR('Jeden z pilkarzy nie wystapil w meczu!',16,1,1)
+	RETURN
+END
+
+UPDATE Statystyki_pilkarzy_w_meczach
+SET Gole += 1
+WHERE Id_pilkarza = @Id_strzelca
+UPDATE Statystyki_pilkarzy_w_meczach
+SET Asysty += 1
+WHERE Id_pilkarza = @Id_asystujacego
+
+IF @Karny = 1
+BEGIN
+	INSERT INTO Rzuty_karne VALUES
+	(@Id_meczu, @Id_strzelca, @Id_bramkarza, 1)
+END
+
+
+
+CREATE PROC Dodaj_wystep_pilkarza @Id_meczu INT, @Id_pilkarza INT, @Minuty INT, @Podstawowy BIT
+AS
+IF EXISTS (SELECT * FROM Statystyki_pilkarzy_w_meczach WHERE Id_meczu = @Id_meczu AND Id_pilkarza = @Id_pilkarza)
+BEGIN
+	RAISERROR('Wystep tego pilkarza zostal juz zanotowany!',16,1,1)
+	RETURN
+END
+INSERT INTO Statystyki_pilkarzy_w_meczach VALUES
+(@Id_meczu, @Id_pilkarza, 0, 0, 0, 0, @Podstawowy, @Minuty)
+
+
+
+CREATE PROC Dodaj_zolta_kartke @Id_meczu INT, @Id_pilkarza INT
+AS
+IF NOT EXISTS (SELECT * FROM Mecze_szczegoly WHERE Id_meczu = @Id_meczu)
+BEGIN
+	RAISERROR('Nie ma informacji o tym meczu!', 16, 1, 1)
+	RETURN
+END
+IF NOT EXISTS (SELECT * FROM Pilkarze WHERE Id_pilkarza = @Id_pilkarza)
+BEGIN
+	RAISERROR('Nie ma takiego pilkarza!',16,1,1)
+	RETURN
+END
+IF NOT EXISTS (SELECT * FROM Statystyki_pilkarzy_w_meczach WHERE Id_pilkarza = @Id_pilkarza)
+BEGIN
+	RAISERROR('Pilkarz nie wystapil w meczu!',16,1,1)
+	RETURN
+END
+
+UPDATE Statystyki_pilkarzy_w_meczach
+SET Zolte_kartki += 1
+WHERE Id_meczu = @Id_meczu AND Id_pilkarza = @Id_pilkarza
+
+
+
+CREATE PROC Dodaj_czerwona_kartke @Id_meczu INT, @Id_pilkarza INT
+AS
+IF NOT EXISTS (SELECT * FROM Mecze_szczegoly WHERE Id_meczu = @Id_meczu)
+BEGIN
+	RAISERROR('Nie ma informacji o tym meczu!', 16, 1, 1)
+	RETURN
+END
+IF NOT EXISTS (SELECT * FROM Pilkarze WHERE Id_pilkarza = @Id_pilkarza)
+BEGIN
+	RAISERROR('Nie ma takiego pilkarza!',16,1,1)
+	RETURN
+END
+IF NOT EXISTS (SELECT * FROM Statystyki_pilkarzy_w_meczach WHERE Id_pilkarza = @Id_pilkarza)
+BEGIN
+	RAISERROR('Pilkarz nie wystapil w meczu!',16,1,1)
+	RETURN
+END
+
+UPDATE Statystyki_pilkarzy_w_meczach
+SET Czerwona_kartka += 1
+WHERE Id_meczu = @Id_meczu AND Id_pilkarza = @Id_pilkarza

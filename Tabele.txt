@@ -1,0 +1,104 @@
+CREATE TABLE Stadiony (
+	Id_stadionu INT IDENTITY(1,1) PRIMARY KEY,
+	Nazwa NVARCHAR(50),
+	Pojemnosc INT,
+)
+CREATE TABLE Kluby (
+	Id_klubu INT IDENTITY(1,1) PRIMARY KEY,
+	Nazwa NVARCHAR(50),
+	Id_stadionu INT,
+	Miasto NVARCHAR(50),
+	FOREIGN KEY (Id_stadionu) REFERENCES Stadiony(Id_stadionu)
+)
+CREATE TABLE Tabela (
+	Id_klubu INT IDENTITY(1,1) PRIMARY KEY,
+	Zwyciestwa INT,
+	Porazki INT,
+	Remisy INT,
+	Punkty INT,
+	FOREIGN KEY (Id_klubu) REFERENCES Kluby(Id_klubu)
+)
+CREATE TABLE Sedziowie (
+	Id_sedziego INT IDENTITY(1,1) PRIMARY KEY,
+	Imie NVARCHAR(50),
+	Nazwisko NVARCHAR(50)
+)
+CREATE TABLE Terminarz (
+	Id_meczu INT IDENTITY(1,1) PRIMARY KEY,
+	Id_gospodarza INT,
+	Id_goscia INT,
+	Numer_kolejki INT,
+	Data_meczu DATETIME,
+	FOREIGN KEY (Id_gospodarza) REFERENCES Kluby(Id_klubu),
+	FOREIGN KEY (Id_goscia) REFERENCES Kluby(Id_klubu)
+)
+CREATE TABLE Trenerzy (
+	Id_trenera INT IDENTITY(1,1) PRIMARY KEY,
+	Id_klubu INT,
+	Imie NVARCHAR(50),
+	Nazwisko NVARCHAR(50),
+	FOREIGN KEY (Id_klubu) REFERENCES Kluby(Id_klubu)
+)
+CREATE TABLE Pilkarze (
+	Id_pilkarza INT IDENTITY(1,1) PRIMARY KEY,
+	Imie NVARCHAR(50),
+	Nazwisko NVARCHAR(50),
+	Id_klubu INT,
+	Pozycja NVARCHAR(50),
+	Kraj NVARCHAR(50),
+	Numer INT,
+	Kontrakt_od DATE,
+	Kontrakt_do DATE,
+	Data_urodzenia DATE,
+	FOREIGN KEY (Id_klubu) REFERENCES Kluby(Id_klubu)
+)
+
+CREATE TABLE Mecze_szczegoly (
+	Id_meczu INT PRIMARY KEY,
+	Gole_gospodarz TINYINT,
+	Gole_gosc TINYINT,
+	Sedzia_glowny INT,
+	Sedzia_liniowy1 INT,
+	Sedzia_liniowy2 INT,
+	Pilkarz_meczu INT,
+	FOREIGN KEY (Id_meczu) REFERENCES Terminarz(Id_meczu),
+	FOREIGN KEY (Sedzia_glowny) REFERENCES Sedziowie(Id_sedziego),
+	FOREIGN KEY (Sedzia_liniowy1) REFERENCES Sedziowie(Id_sedziego),
+	FOREIGN KEY (Sedzia_liniowy2) REFERENCES Sedziowie(Id_sedziego),
+	FOREIGN KEY (Pilkarz_meczu) REFERENCES Pilkarze(Id_pilkarza)
+)
+
+CREATE TABLE Transfery (
+	Id_transferu INT IDENTITY(1,1) PRIMARY KEY,
+	Id_pilkarza INT,
+	Stary_klub INT,
+	Nowy_klub INT,
+	Cena MONEY,
+	FOREIGN KEY (Id_pilkarza) REFERENCES Pilkarze(Id_pilkarza),
+	FOREIGN KEY (Stary_klub) REFERENCES Kluby(Id_klubu),
+	FOREIGN KEY (Nowy_klub) REFERENCES Kluby(Id_klubu)
+)
+CREATE TABLE Rzuty_karne (
+	Id_karnego INT IDENTITY(1,1) PRIMARY KEY,
+	Id_meczu INT,
+	Id_wykonywujacego INT,
+	Id_bramkarza INT,
+	Strzelony BIT,
+	FOREIGN KEY (Id_meczu) REFERENCES Mecze_szczegoly(Id_meczu),
+	FOREIGN KEY (Id_wykonywujacego) REFERENCES Pilkarze(Id_pilkarza),
+	FOREIGN KEY (Id_bramkarza) REFERENCES Pilkarze(Id_pilkarza)
+)
+
+CREATE TABLE Statystyki_pilkarzy_w_meczach (
+	Id_meczu INT,
+	Id_pilkarza INT,
+	Gole TINYINT,
+	Asysty TINYINT,
+	Zolte_kartki TINYINT,
+	Czerwona_kartka BIT,
+	Podstawowy_sklad BIT,
+	Minuty_w_grze TINYINT, 
+	PRIMARY KEY (Id_meczu, Id_pilkarza),
+	FOREIGN KEY (Id_meczu) REFERENCES Mecze_szczegoly(Id_meczu),
+	FOREIGN KEY (Id_pilkarza) REFERENCES Pilkarze(Id_pilkarza)
+)
